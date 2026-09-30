@@ -121,15 +121,17 @@ function setup() {
 
 /* ─────────────────────────────────── RSVP ─────────────────────────────────── */
 
+// attendance: yes (katılıyor) · no (katılamıyor) · maybe (belirsiz)
 function submitRsvp_(p, client) {
-  var attendance = p.attendance === 'yes' || p.attendance === 'no' ? p.attendance : null;
+  var attendance = ['yes', 'no', 'maybe'].indexOf(p.attendance) >= 0 ? p.attendance : null;
+  var coming = attendance === 'yes' || attendance === 'maybe';
   var name = oneLine_(p.name, LIMITS.name);
   var phone = String(p.phone || '').replace(/[^\d+]/g, '').slice(0, LIMITS.phone);
-  var guests = attendance === 'yes' ? Math.floor(Number(p.guestCount)) : 0;
+  var guests = coming ? Math.floor(Number(p.guestCount)) : 0;
   var note = multiLine_(p.note, LIMITS.note);
 
   if (!attendance || name.length < 2) return { ok: false, error: 'invalid' };
-  if (attendance === 'yes' && !(guests >= 1 && guests <= LIMITS.maxGuests)) return { ok: false, error: 'invalid' };
+  if (coming && !(guests >= 1 && guests <= LIMITS.maxGuests)) return { ok: false, error: 'invalid' };
 
   return withLock_(function () {
     if (!allow_('rsvp', client.ipHash) || !allow_('writes', 'all')) return { ok: false, error: 'rate_limited' };
@@ -153,10 +155,15 @@ function submitRsvp_(p, client) {
 
 function findRsvp_(values, name, phone) {
   var key = norm_(name);
-  var digits = phone.replace(/\D/g, '');
+  // Son 10 hane: "+90 555…", "0555…" ve "555…" aynı numara sayılır
+  var tail = function (value) {
+    var d = String(value || '').replace(/\D/g, '');
+    return d.length >= 10 ? d.slice(-10) : d;
+  };
+  var digits = tail(phone);
   var byName = -1;
   for (var i = values.length - 1; i >= 1; i--) {
-    var rowDigits = String(values[i][2] || '').replace(/\D/g, '');
+    var rowDigits = tail(values[i][2]);
     if (digits && rowDigits && rowDigits === digits) return i;
     if (byName < 0 && norm_(values[i][1]) === key && (!digits || !rowDigits)) byName = i;
   }
@@ -231,7 +238,7 @@ function adminSummary_() {
       id: String(r[0]),
       name: String(r[1] || ''),
       phone: String(r[2] || ''),
-      attendance: r[3] === 'yes' ? 'yes' : 'no',
+      attendance: r[3] === 'yes' || r[3] === 'maybe' ? r[3] : 'no',
       guestCount: Number(r[4]) || 0,
       note: String(r[5] || ''),
       createdAt: iso_(r[6]),
@@ -258,15 +265,23 @@ function adminSummary_() {
   var attending = rsvps.filter(function (r) {
     return r.attendance === 'yes';
   });
+  var maybe = rsvps.filter(function (r) {
+    return r.attendance === 'maybe';
+  });
+  var sum = function (list) {
+    return list.reduce(function (total, r) {
+      return total + r.guestCount;
+    }, 0);
+  };
   return {
     ok: true,
     stats: {
       responses: rsvps.length,
       attending: attending.length,
-      declined: rsvps.length - attending.length,
-      guests: attending.reduce(function (sum, r) {
-        return sum + r.guestCount;
-      }, 0),
+      declined: rsvps.length - attending.length - maybe.length,
+      maybe: maybe.length,
+      guests: sum(attending),
+      maybeGuests: sum(maybe),
       notes: notes.length,
     },
     rsvps: rsvps,

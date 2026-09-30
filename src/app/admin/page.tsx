@@ -89,9 +89,16 @@ async function Dashboard() {
         </Notice>
       ) : (
         <>
-          <section aria-label="Özet" className="grid grid-cols-2 gap-px bg-[var(--rule)] md:grid-cols-4">
-            <Stat label="Toplam misafir" value={data.stats.guests} accent />
+          <section aria-label="Özet" className="grid grid-cols-2 gap-px bg-[var(--rule)] md:grid-cols-5">
+            <Stat
+              label="Toplam misafir"
+              value={data.stats.guests}
+              hint={data.stats.maybeGuests ? `+${data.stats.maybeGuests} olası (belirsiz)` : undefined}
+              accent
+              wide
+            />
             <Stat label="Katılacak yanıt" value={data.stats.attending} />
+            <Stat label="Belirsiz" value={data.stats.maybe ?? 0} />
             <Stat label="Katılamayacak" value={data.stats.declined} />
             <Stat label="Toplam yanıt" value={data.stats.responses} />
           </section>
@@ -135,6 +142,8 @@ async function Dashboard() {
                     <p className="t-label">
                       {r.attendance === 'yes' ? (
                         <span className="text-[var(--accent)]">Geliyor · {r.guestCount}</span>
+                      ) : r.attendance === 'maybe' ? (
+                        <span>Belirsiz · {r.guestCount}</span>
                       ) : (
                         <span className="muted">Gelemiyor</span>
                       )}
@@ -192,11 +201,24 @@ async function Dashboard() {
   )
 }
 
-function Stat({ label, value, accent = false }: { label: string; value: number; accent?: boolean }) {
+function Stat({
+  label,
+  value,
+  hint,
+  accent = false,
+  wide = false,
+}: {
+  label: string
+  value: number
+  hint?: string
+  accent?: boolean
+  wide?: boolean
+}) {
   return (
-    <div className="bg-[var(--color-paper)] px-4 py-5">
+    <div className={`bg-[var(--color-paper)] px-4 py-5 ${wide ? 'col-span-2 md:col-span-1' : ''}`}>
       <p className={`t-titling text-[3.75rem] leading-[0.9] ${accent ? 'text-[var(--accent)]' : ''}`}>{value}</p>
       <p className="t-label muted mt-2">{label}</p>
+      {hint ? <p className="t-ui muted mt-1 text-[0.8125rem]">{hint}</p> : null}
     </div>
   )
 }

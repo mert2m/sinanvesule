@@ -4,7 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type React
 import { AnimatePresence, LazyMotion, domAnimation } from 'motion/react'
 import * as m from 'motion/react-m'
 import { invitation } from '@/content/invitation'
-import { clock, fill, firstName, longDate } from '@/lib/format'
+import { clock, dayMonth, fill, firstName, longDate } from '@/lib/format'
 import { errorMessage } from '@/lib/messages'
 import { LIMITS, validateRsvp, type Attendance, type FieldErrors, type RsvpInput } from '@/lib/validation'
 import { CengelMark } from '../marks'
@@ -40,6 +40,8 @@ export function RsvpForm() {
   const [errors, setErrors] = useState<FieldErrors<keyof RsvpInput>>({})
   const [serverError, setServerError] = useState<string | null>(null)
   const clear = (key: keyof RsvpInput) => setErrors((e) => (e[key] ? { ...e, [key]: undefined } : e))
+  // Belirsiz diyenlerden de telefon ve olası kişi sayısı alınır
+  const coming = attendance === 'yes' || attendance === 'maybe'
 
   const openedAt = useRef(0)
   const honeypot = useRef<HTMLInputElement>(null)
@@ -141,13 +143,8 @@ export function RsvpForm() {
             <m.div key="stored" className="border-y border-[var(--rule)] py-6" {...fadeUp}>
               <p className="t-label muted">{c.stored}</p>
               <p className="t-lead mt-3">
-                {stored.attendance === 'yes' ? (
-                  <>
-                    {c.yes.label} <span className="muted">· {stored.guestCount} kişi</span>
-                  </>
-                ) : (
-                  c.no.label
-                )}
+                {c[stored.attendance].label}
+                {stored.attendance !== 'no' ? <span className="muted"> · {stored.guestCount} kişi</span> : null}
               </p>
               <p className="t-ui muted mt-1">{stored.name}</p>
               <button type="button" className="btn mt-6" onClick={startEdit}>
@@ -179,8 +176,12 @@ export function RsvpForm() {
               <fieldset>
                 <legend className="sr-only">Katılım durumu</legend>
                 <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-invalid={Boolean(errors.attendance)}>
-                  {(['yes', 'no'] as const).map((value) => (
-                    <label key={value} className="choice" data-checked={attendance === value}>
+                  {(['yes', 'no', 'maybe'] as const).map((value) => (
+                    <label
+                      key={value}
+                      className={value === 'maybe' ? 'choice choice--wide' : 'choice'}
+                      data-checked={attendance === value}
+                    >
                       <input
                         type="radio"
                         name={`${ids}-attendance`}
@@ -230,7 +231,7 @@ export function RsvpForm() {
                         />
                       </Field>
 
-                      {attendance === 'yes' && (
+                      {coming && (
                         <Field
                           id={`${ids}-phone`}
                           label={c.phone}
@@ -258,10 +259,10 @@ export function RsvpForm() {
                         </Field>
                       )}
 
-                      {attendance === 'yes' && (
+                      {coming && (
                         <div className="field">
                           <p className="field__label t-label" id={`${ids}-guests`}>
-                            <span>{c.guests}</span>
+                            <span>{attendance === 'maybe' ? c.guestsMaybe : c.guests}</span>
                             <span className="normal-case tracking-normal">{c.guestsHint}</span>
                           </p>
                           <div className="stepper mt-2" role="group" aria-labelledby={`${ids}-guests`}>
@@ -302,7 +303,13 @@ export function RsvpForm() {
                             setNote(e.target.value)
                             clear('note')
                           }}
-                          placeholder={attendance === 'yes' ? c.notePlaceholderYes : c.notePlaceholderNo}
+                          placeholder={
+                            attendance === 'yes'
+                              ? c.notePlaceholderYes
+                              : attendance === 'maybe'
+                                ? c.notePlaceholderMaybe
+                                : c.notePlaceholderNo
+                          }
                           maxLength={LIMITS.note}
                         />
                       </Field>
@@ -342,14 +349,23 @@ export function RsvpForm() {
 }
 
 function Success({ done, onEdit }: { done: Done; onEdit: () => void }) {
-  const { copy, event, venue } = invitation
+  const { copy, event, venue, rsvp } = invitation
   const c = copy.rsvp
   const { record } = done
   const who = firstName(record.name)
-  const yes = record.attendance === 'yes'
-  const title = yes
-    ? fill(record.guestCount > 1 ? c.successYesTitleGroup : c.successYesTitle, { name: who, count: record.guestCount })
-    : fill(c.successNoTitle, { name: who })
+  const kind = record.attendance
+  const title =
+    kind === 'yes'
+      ? fill(record.guestCount > 1 ? c.successYesTitleGroup : c.successYesTitle, { name: who, count: record.guestCount })
+      : kind === 'maybe'
+        ? fill(c.successMaybeTitle, { name: who })
+        : fill(c.successNoTitle, { name: who })
+  const body =
+    kind === 'yes'
+      ? c.successYesBody
+      : kind === 'maybe'
+        ? fill(c.successMaybeBody, { deadline: dayMonth(rsvp.deadline) })
+        : c.successNoBody
   return (
     <div className="border-y border-[var(--rule)] py-8">
       <m.div
@@ -376,9 +392,9 @@ function Success({ done, onEdit }: { done: Done; onEdit: () => void }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1.1, ease: EASE, delay: 0.45 }}
       >
-        {yes ? c.successYesBody : c.successNoBody}
+        {body}
       </m.p>
-      {yes && (
+      {kind !== 'no' && (
         <m.p
           className="t-ui mt-6"
           initial={{ opacity: 0 }}

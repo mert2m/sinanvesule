@@ -6,7 +6,7 @@ export type RsvpRow = {
   id: string
   name: string
   phone: string
-  attendance: 'yes' | 'no'
+  attendance: 'yes' | 'no' | 'maybe'
   guestCount: number
   note: string
   createdAt: string
@@ -23,7 +23,17 @@ export type NoteRow = {
 }
 
 export type AdminSummary = {
-  stats: { responses: number; attending: number; declined: number; guests: number; notes: number }
+  stats: {
+    responses: number
+    attending: number
+    declined: number
+    maybe: number
+    /** Katılacakların toplam kişi sayısı */
+    guests: number
+    /** Belirsizlerin olası kişi sayısı */
+    maybeGuests: number
+    notes: number
+  }
   rsvps: RsvpRow[]
   notes: NoteRow[]
   generatedAt: string

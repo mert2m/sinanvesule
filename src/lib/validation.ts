@@ -10,7 +10,8 @@ export const LIMITS = {
   noteName: 60,
 } as const
 
-export type Attendance = 'yes' | 'no'
+/** yes: katılıyor · no: katılamıyor · maybe: belirsiz */
+export type Attendance = 'yes' | 'no' | 'maybe'
 export type Visibility = 'public' | 'anonymous' | 'private'
 
 export type RsvpInput = {
@@ -89,7 +90,10 @@ export function validateRsvp(raw: unknown, rules: RsvpRules): Result<RsvpInput, 
   const input = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
   const errors: FieldErrors<keyof RsvpInput> = {}
 
-  const attendance = input.attendance === 'yes' || input.attendance === 'no' ? input.attendance : null
+  const attendance: Attendance | null =
+    input.attendance === 'yes' || input.attendance === 'no' || input.attendance === 'maybe' ? input.attendance : null
+  // Belirsiz diyenler de gelebilir: telefon ve (olası) kişi sayısı onlardan da alınır
+  const coming = attendance === 'yes' || attendance === 'maybe'
   if (!attendance) errors.attendance = 'Lütfen katılım durumunuzu seçin.'
 
   const name = cleanLine(input.name, LIMITS.name)
@@ -102,12 +106,12 @@ export function validateRsvp(raw: unknown, rules: RsvpRules): Result<RsvpInput, 
     const normalized = normalizePhone(phoneRaw)
     if (!normalized) errors.phone = 'Telefon numarası geçerli görünmüyor.'
     else phone = normalized
-  } else if (attendance === 'yes' && rules.requirePhone) {
+  } else if (coming && rules.requirePhone) {
     errors.phone = 'Size ulaşabilmemiz için telefon numaranızı yazın.'
   }
 
   let guestCount = 0
-  if (attendance === 'yes') {
+  if (coming) {
     const n = Number(input.guestCount)
     if (!Number.isInteger(n) || n < 1 || n > rules.maxGuests) {
       errors.guestCount = `Kişi sayısı 1 ile ${rules.maxGuests} arasında olmalı.`

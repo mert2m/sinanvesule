@@ -51,16 +51,19 @@ export type InvitationConfig = {
       intro: string
       yes: { label: string; sub: string }
       no: { label: string; sub: string }
+      maybe: { label: string; sub: string }
       name: string
       namePlaceholder: string
       phone: string
       phonePlaceholder: string
       guests: string
       guestsHint: string
+      guestsMaybe: string
       note: string
       noteOptional: string
       notePlaceholderYes: string
       notePlaceholderNo: string
+      notePlaceholderMaybe: string
       submit: string
       sending: string
       privacy: string
@@ -69,6 +72,8 @@ export type InvitationConfig = {
       successYesBody: string
       successNoTitle: string
       successNoBody: string
+      successMaybeTitle: string
+      successMaybeBody: string
       updated: string
       stored: string
       change: string

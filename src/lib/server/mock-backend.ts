@@ -62,13 +62,16 @@ export async function mockBackend(action: string, payload: unknown): Promise<unk
     }
     case 'admin.summary': {
       const attending = db.rsvps.filter((r) => r.attendance === 'yes')
+      const maybe = db.rsvps.filter((r) => r.attendance === 'maybe')
       return {
         ok: true,
         stats: {
           responses: db.rsvps.length,
           attending: attending.length,
-          declined: db.rsvps.length - attending.length,
+          declined: db.rsvps.filter((r) => r.attendance === 'no').length,
+          maybe: maybe.length,
           guests: attending.reduce((sum, r) => sum + r.guestCount, 0),
+          maybeGuests: maybe.reduce((sum, r) => sum + r.guestCount, 0),
           notes: db.notes.length,
         },
         rsvps: db.rsvps,
